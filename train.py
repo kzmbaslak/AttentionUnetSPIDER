@@ -59,14 +59,18 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
             images, masks = images.to(device), masks.to(device)
             optimizer.zero_grad()
             outputs = model(images)
-            print("Model output shape:", outputs.shape)
-            print("Target mask shape:", masks.shape)
             
-            print("Output shape:", outputs.shape)
-            print("Mask shape:", masks.shape)
-            print("Mask dtype:", masks.dtype)
-            print("Mask max sınıf:", masks.max().item())
-            print("Mask sınıflar:", masks.unique().tolist())
+            
+# =============================================================================
+#             print("Model output shape:", outputs.shape)
+#             print("Target mask shape:", masks.shape)
+#             
+#             print("Output shape:", outputs.shape)
+#             print("Mask shape:", masks.shape)
+#             print("Mask dtype:", masks.dtype)
+#             print("Mask max sınıf:", masks.max().item())
+#             print("Mask sınıflar:", masks.unique().tolist())
+# =============================================================================
             
             if masks.max() >= outputs.shape[1]:
                 raise ValueError(f"Mask'te {masks.max().item()} sınıfı var ama modelin out_channels={outputs.shape[1]}")

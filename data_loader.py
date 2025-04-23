@@ -237,8 +237,8 @@ if __name__ == '__main__':
 
     import torch
     # Veri klasörleri ve CSV dosyasının yolu
-    IMAGE_DIR = 'data/images'
-    MASK_DIR = 'data/masks'
+    IMAGE_DIR = config.IMAGE_DIR
+    MASK_DIR = config.MASK_DIR
     CSV_PATH = config.overviewPath
     TIME_STEPS = 5 #Zaman serisi boyutu
 

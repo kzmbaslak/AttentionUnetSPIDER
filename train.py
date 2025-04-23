@@ -12,6 +12,7 @@ from data_loader import SpineDataset
 from utils import dice_loss, dice_coefficient, calculate_metrics
 import numpy as np
 import SimpleITK as sitk
+from tqdm import tqdm
 import config
 
 
@@ -53,7 +54,8 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
-        for images, masks in train_loader:            
+        
+        for images, masks in tqdm(train_loader):            
             images, masks = images.to(device), masks.to(device)
             optimizer.zero_grad()
             outputs = model(images)

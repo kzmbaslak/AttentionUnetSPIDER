@@ -123,6 +123,7 @@ class SpineDataset(Dataset):
         return tempImageArray, tempMaskArray
     
     def windowing(self, image, minValue, maxValue):
+        image = image.astype(np.float32)
         image = np.clip(image, minValue, maxValue)
         return image
 

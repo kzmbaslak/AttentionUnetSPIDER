@@ -1,0 +1,96 @@
+# src/inference.py
+import torch
+import SimpleITK as sitk
+import numpy as np
+from model import AttentionUnet
+import os
+
+# Modelin yükleneceği cihazı ayarla
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def load_model(model_path, num_classes):
+    """Eğitilmiş modeli yükle"""
+    model = AttentionUnet(in_channels=1, num_classes=num_classes).to(DEVICE)
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+    model.eval()  # inference moduna al
+    return model
+
+def predict_segmentation(image_path, model, num_classes, time_steps=5):
+    """Verilen görüntü için segmentasyon tahmini yap"""
+    image = sitk.ReadImage(image_path)
+    image_array = sitk.GetArrayFromImage(image) # T, H, W
+
+     # Zaman serisi uzunluğunu kontrol et ve gerekirse kırp veya doldur
+    T = image_array.shape[0]
+    if T > time_steps:
+        start = (T - time_steps) // 2 #Ortala
+        image_array = image_array[start:start + time_steps]
+    elif T < time_steps:
+        pad_size = time_steps - T
+        image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
+
+    # Ön işleme (windowing, resampling, normalize) - data_loader'dan al
+    image_array = windowing(image_array, window_center=50, window_width=350)  # Değerler ayarlanabilir
+    image_array, _ = resample(image, image, [time_steps, 64, 64])  # Hedef boyut ayarlanabilir
+    image_array = normalize(image_array)
+
+    image_array = np.expand_dims(image_array, axis=0)
+    image_array = np.expand_dims(image_array, axis=0) # Kanal ve batch boyutlarını ekle
+    image_tensor = torch.from_numpy(image_array).float().to(DEVICE)
+
+    with torch.no_grad():
+        output = model(image_tensor)
+        prediction = torch.argmax(output, dim=1).cpu().numpy() # En olası sınıfı seç
+
+    return prediction[0]  # Batch boyutunu kaldır
+
+def windowing(image, window_center, window_width):
+    window_min = window_center - window_width // 2
+    window_max = window_center + window_width // 2
+    image = np.clip(image, window_min, window_max)
+    return image
+
+def resample(image, mask, new_spacing=[1.0, 1.0, 1.0]):  # Orjinalde [1, 1, 1] idi
+    # Resampling için SimpleITK kullan
+    resample = sitk.ResampleImageFilter()
+    resample.SetInterpolator(sitk.sitkLinear) # veya sitk.sitkNearestNeighbor
+    resample.SetOutputSpacing(new_spacing)
+    resample.SetOutputOrigin(image.GetOrigin())
+    resample.SetOutputDirection(image.GetDirection())
+    resample.SetSize([int(s) for s in image.GetSize()])  # Boyutları integer'a çevir
+
+    new_img = resample.Execute(image)
+
+    img_array = sitk.GetArrayFromImage(new_img)
+
+    return img_array, img_array
+
+def normalize(image):
+    MIN_BOUND = -1000.0
+    MAX_BOUND = 400.0
+    image = (image - MIN_BOUND) / (MAX_BOUND - MIN_BOUND)
+    image[image > 1] = 1.
+    image[image < 0] = 0.
+    return image
+
+# Örnek Kullanım
+if __name__ == '__main__':
+    # Modelin yolu ve sınıf sayısı
+    MODEL_PATH = 'saved_models/attention_unet.pth'
+    NUM_CLASSES = 4
+    TIME_STEPS = 5
+    # Test görüntüsünün yolu
+    TEST_IMAGE_PATH = 'data/images/image1.mha'  # Test için bir görüntü seç
+
+    # Modeli yükle
+    model = load_model(MODEL_PATH, NUM_CLASSES)
+
+    # Segmentasyon tahmini yap
+    segmented_image = predict_segmentation(TEST_IMAGE_PATH, model, NUM_CLASSES, TIME_STEPS)
+
+    # Sonucu kaydet (isteğe bağlı)
+    output_path = 'segmented_image.mha'
+    segmented_image = sitk.GetImageFromArray(segmented_image)
+    sitk.WriteImage(segmented_image, output_path)
+
+    print(f"Segmented image saved to {output_path}")

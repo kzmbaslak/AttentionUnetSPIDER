@@ -17,6 +17,9 @@ basedir = getenv('VERSEG_BASEDIR', '/data')
 datadir = path.join(basedir, 'datasets')
 expdir = path.join(basedir, 'experiments')
 
+IMAGE_DIR = 'data/images'
+MASK_DIR = 'data/masks'
+
 # External code base (undefined = feature disabled)
 extdir = getenv('VERSEG_EXTDIR', path.join(basedir, 'code', 'devel'))
 overviewPath = 'overview.csv'

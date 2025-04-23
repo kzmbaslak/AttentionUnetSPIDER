@@ -47,10 +47,14 @@ class SpineDataset(Dataset):
         image_name = self.image_names[idx]
         image_path = self.image_dir+ "/"+ image_name+".mha"
         mask_path = self.mask_dir+ "/" +image_name+".mha"
-
+        print(image_name)
+        
         image = sitk.ReadImage(image_path)
         mask = sitk.ReadImage(mask_path)
-       
+        
+        print(image.GetSize())
+        print(mask.GetSize())
+        
         # Resampling
         image, mask = sitk.ReadImage(image_path), sitk.ReadImage(mask_path) #Resample fonksiyonu için okuma işlemi
         image_array, mask_array = self.resample(image, mask, config.working_resolution)
@@ -258,7 +262,7 @@ if __name__ == '__main__':
     test_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='test', time_steps=TIME_STEPS)
 
     # Dataloader'ları oluştur
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
 

@@ -51,7 +51,6 @@ class SpineDataset(Dataset):
         image = sitk.ReadImage(image_path)
         mask = sitk.ReadImage(mask_path)
        
-
         # Resampling
         image, mask = sitk.ReadImage(image_path), sitk.ReadImage(mask_path) #Resample fonksiyonu için okuma işlemi
         image_array, mask_array = self.resample(image, mask, config.working_resolution)
@@ -74,10 +73,12 @@ class SpineDataset(Dataset):
         threshold_max = 24 # Üst yoğunluk eşiği
         image_array = self.automatic_roi(image_array,threshold_min, threshold_max)
         mask_array = self.automatic_roi(mask_array,threshold_min, threshold_max)
-
+        
         # Windowing
         image_array = self.windowing(image_array, config.pixelMinValue, config.pixelMaxValue)
 
+
+        
         # Resize
         image_array, mask_array = self.resizeImages(image_array, mask_array)
 
@@ -105,8 +106,8 @@ class SpineDataset(Dataset):
 
         image_array = torch.from_numpy(image_array).float()
         mask_array = torch.from_numpy(mask_array).long() # Maskeler long tipinde
-        print("Mask sinıfları:", torch.unique(mask_array))
-        assert mask_array.dtype == torch.long
+        #print("Mask sinıfları:", torch.unique(mask_array))
+        #assert mask_array.dtype == torch.long
 
         if self.transform:
             image_array, mask_array = self.transform(image_array, mask_array)
@@ -114,7 +115,9 @@ class SpineDataset(Dataset):
 
         return image_array, mask_array
 
-    def resizeImages(self, imageArray, maskArray):        
+    def resizeImages(self, imageArray, maskArray):
+        if maskArray.ndim != 3:
+            raise ValueError(f"Beklenen 3 boyutlu maske array, ama gelen: {maskArray.shape}")
         tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
         tempMaskArray = np.zeros((config.patch_shape[::-1]),np.int64)
         for i in range(imageArray.shape[2]):
@@ -193,8 +196,10 @@ class SpineDataset(Dataset):
         y_min, y_max = np.min(indices[1]), np.max(indices[1])
         x_min, x_max = np.min(indices[2]), np.max(indices[2])
     
-        roi = image_array[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1]
+        roi = np.array(image_array[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1])
         #return roi, (z_min, y_min, x_min, z_max+1, y_max+1, x_max+1) #+1 leri aralıklar dahil edilsin diye ekledim
+        
+        
         return roi
 
 

@@ -262,7 +262,7 @@ if __name__ == '__main__':
     test_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='test', time_steps=TIME_STEPS)
 
     # Dataloader'ları oluştur
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
 

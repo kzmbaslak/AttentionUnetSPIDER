@@ -47,13 +47,9 @@ class SpineDataset(Dataset):
         image_name = self.image_names[idx]
         image_path = self.image_dir+ "/"+ image_name+".mha"
         mask_path = self.mask_dir+ "/" +image_name+".mha"
-        print(image_name)
         
         image = sitk.ReadImage(image_path)
         mask = sitk.ReadImage(mask_path)
-        
-        #print(image.GetSize())
-        #print(mask.GetSize())
         
         # Resampling
         image, mask = sitk.ReadImage(image_path), sitk.ReadImage(mask_path) #Resample fonksiyonu için okuma işlemi
@@ -127,7 +123,6 @@ class SpineDataset(Dataset):
         tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
         tempMaskArray = np.zeros((config.patch_shape[::-1]),np.int64)
         for i in range(imageArray.shape[2]):
-            print(maskArray.shape,imageArray.shape)
             tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
             tempMaskArray[:,:,i] = cv2.resize(maskArray[:,:,i], config.patch_shape[1:],interpolation=cv2.INTER_NEAREST)
         return tempImageArray, tempMaskArray

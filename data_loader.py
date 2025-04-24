@@ -52,17 +52,19 @@ class SpineDataset(Dataset):
         image = sitk.ReadImage(image_path)
         mask = sitk.ReadImage(mask_path)
         
-        print(image.GetSize())
-        print(mask.GetSize())
+        #print(image.GetSize())
+        #print(mask.GetSize())
         
         # Resampling
         image, mask = sitk.ReadImage(image_path), sitk.ReadImage(mask_path) #Resample fonksiyonu için okuma işlemi
         image_array, mask_array = self.resample(image, mask, config.working_resolution)
 
-
-
+        
+        if(image_array.shape != mask_array.shape):
+            return
         # Zaman serisi uzunluğunu kontrol et ve gerekirse kırp veya doldur
         T = image_array.shape[2]
+        
         if T > self.time_steps:
             start = (T - self.time_steps) // 2 #Ortala
             image_array = image_array[:,:,start:start + self.time_steps]
@@ -73,8 +75,8 @@ class SpineDataset(Dataset):
             mask_array = np.pad(mask_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
         
         #auto crop
-        threshold_min = 1 # Alt yoğunluk eşiği
-        threshold_max = 24 # Üst yoğunluk eşiği
+        threshold_min = config.pixelMinValue # Alt yoğunluk eşiği
+        threshold_max = config.pixelMaxValue # Üst yoğunluk eşiği
         image_array = self.automatic_roi(image_array,threshold_min, threshold_max)
         mask_array = self.automatic_roi(mask_array,threshold_min, threshold_max)
         
@@ -100,8 +102,8 @@ class SpineDataset(Dataset):
         mask_array[mask_array > 200] = 3
         
             
-        plt.figure()
-        plt.imshow(mask_array[0],cmap="gray")
+        #plt.figure()
+        #plt.imshow(mask_array[0],cmap="gray")
         
         
         # PyTorch için format
@@ -120,11 +122,12 @@ class SpineDataset(Dataset):
         return image_array, mask_array
 
     def resizeImages(self, imageArray, maskArray):
-        if maskArray.ndim != 3:
-            raise ValueError(f"Beklenen 3 boyutlu maske array, ama gelen: {maskArray.shape}")
+        #print(type(maskArray),maskArray.shape,type(imageArray),imageArray.shape)
+        
         tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
         tempMaskArray = np.zeros((config.patch_shape[::-1]),np.int64)
         for i in range(imageArray.shape[2]):
+            print(maskArray.shape,imageArray.shape)
             tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
             tempMaskArray[:,:,i] = cv2.resize(maskArray[:,:,i], config.patch_shape[1:],interpolation=cv2.INTER_NEAREST)
         return tempImageArray, tempMaskArray

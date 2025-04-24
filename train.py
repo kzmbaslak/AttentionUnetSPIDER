@@ -38,7 +38,7 @@ train_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='training', time_st
 val_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='validation', time_steps=TIME_STEPS)
 test_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='test', time_steps=TIME_STEPS)  # Test dataset'i de oluşturuldu
 
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY) # Test loader'ı da oluşturuldu
 

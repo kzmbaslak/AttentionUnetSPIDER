@@ -18,11 +18,12 @@ import config
 
 
 # Hiperparametreler
+LOAD_MODEL = False
 BATCH_SIZE = 2
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
 NUM_CLASSES = 4 # Arka plan dahil
-NUM_WORKERS = 2 # multiprocess sayısı
+NUM_WORKERS = 0 # multiprocess sayısı
 PIN_MEMORY = True # Adresleri sabitlenmiş hafıza  oluşturma
 IMAGE_DIR = config.IMAGE_DIR
 MASK_DIR = config.MASK_DIR
@@ -50,12 +51,17 @@ criterion = nn.CrossEntropyLoss()
 
 # Eğitim döngüsü
 def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs, device):
+    
+    if LOAD_MODEL:
+        load_checkpoint(torch.load(MODEL_SAVE_PATH), model)
+    
     best_val_loss = float('inf')
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
         
-        for images, masks in tqdm(train_loader):            
+        for i, (images, masks) in enumerate(tqdm(train_loader)):
+            print(f"[train_loop] Batch {i} alındı.") 
             images, masks = images.to(device), masks.to(device)
             optimizer.zero_grad()
             outputs = model(images)
@@ -76,8 +82,8 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
                 raise ValueError(f"Mask'te {masks.max().item()} sınıfı var ama modelin out_channels={outputs.shape[1]}")
             
             # Flatten for CrossEntropy
-            outputs = outputs.permute(0, 2, 3, 4, 1).contiguous().view(-1, outputs.shape[1])
-            masks = masks.view(-1)
+            #outputs = outputs.permute(0, 2, 3, 4, 1).contiguous().view(-1, outputs.shape[1])
+            #masks = masks.view(-1)
             
             
             loss = criterion(outputs, masks)
@@ -104,8 +110,14 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
         # Modeli kaydet (en iyi validation kaybıyla)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), MODEL_SAVE_PATH)
+            
+            checkpoint = {
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(), 
+            }
+            torch.save(checkpoint, MODEL_SAVE_PATH)
             print(f'Model saved to {MODEL_SAVE_PATH}')
+            
 
 def validation_loop(model, criterion, val_loader, device):
     model.eval()
@@ -128,6 +140,10 @@ def validation_loop(model, criterion, val_loader, device):
     mean_dice = np.mean(dice_scores) # Tüm batch'lerin ortalama dice skoru
     return val_loss, mean_dice
 
+def load_checkpoint(checkpoint, model):
+    print("=> Loading checkpoint")
+    model.load_state_dict(checkpoint["state_dict"])
+    
 # Eğitim
 if __name__ == '__main__':
     train_loop(model, optimizer, criterion, train_loader, val_loader, NUM_EPOCHS, DEVICE)

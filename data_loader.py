@@ -31,6 +31,8 @@ class SpineDataset(Dataset):
         # Train/Validation/Test split'i overview.csv'den oku
         if subset == 'training' or subset == 'validation':
             self.image_names = self.dataframe[self.dataframe['subset'] == subset]['filename'].tolist()
+            if subset == 'training':
+                self.image_names, test_names = train_test_split(self.image_names, test_size=test_size, random_state=42)
         elif subset == 'test':
             # Test verisi overview'da yoksa, training'den ayır
             train_df = self.dataframe[self.dataframe['subset'] == 'training']
@@ -44,6 +46,7 @@ class SpineDataset(Dataset):
         return len(self.image_names)
 
     def __getitem__(self, idx):
+        print(f"[Dataset] __getitem__ çağrıldı: {idx}")
         image_name = self.image_names[idx]
         image_path = self.image_dir+ "/"+ image_name+".mha"
         mask_path = self.mask_dir+ "/" +image_name+".mha"
@@ -258,7 +261,8 @@ if __name__ == '__main__':
     train_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='training', time_steps=TIME_STEPS)
     val_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='validation', time_steps=TIME_STEPS)
     test_dataset = SpineDataset(IMAGE_DIR, MASK_DIR, df, subset='test', time_steps=TIME_STEPS)
-
+    print(len(train_dataset),len(val_dataset),len(test_dataset))
+    
     # Dataloader'ları oluştur
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)

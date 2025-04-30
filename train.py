@@ -18,7 +18,7 @@ import config
 
 
 # Hiperparametreler
-LOAD_MODEL = False
+LOAD_MODEL = True
 BATCH_SIZE = 2
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10

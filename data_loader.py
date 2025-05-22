@@ -22,7 +22,7 @@ class SpineDataset(Dataset):
     def __init__(self, image_dir, mask_dir, dataframe, transform=None, subset='training', test_size=0.16, time_steps=config.patch_shape[0]):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
-        self.dataframe = dataframe
+        self.dataframe = dataframe.iloc[:20]
         self.transform = transform
         self.subset = subset
         self.image_names = self.dataframe['filename'].tolist()
@@ -46,7 +46,7 @@ class SpineDataset(Dataset):
         return len(self.image_names)
 
     def __getitem__(self, idx):
-        print(f"[Dataset] __getitem__ çağrıldı: {idx}")
+        #print(f"[Dataset] __getitem__ çağrıldı: {idx}")
         image_name = self.image_names[idx]
         image_path = self.image_dir+ "/"+ image_name+".mha"
         mask_path = self.mask_dir+ "/" +image_name+".mha"

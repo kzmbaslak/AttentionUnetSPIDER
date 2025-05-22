@@ -119,10 +119,17 @@ class AttentionUnet3D(nn.Module):
 if __name__ == '__main__':
     # Model Test
     model = AttentionUnet3D(in_channels=1, out_channels=3)
-    input_tensor = torch.randn(1, 1, 5, 192, 192) # (batch_size, channels, depth, height, width)
-    output = model(input_tensor)
-    print("Output Shape:", output.shape)  #torch.Size([1, 3, 192, 192])
+    
+    x = torch.randn(1, 1, 5, 192, 192)
+    out = model(x)
+    print("Output shape:", out.shape)
+    print("Toplam parametre sayısı:", sum(p.numel() for p in model.parameters()))
+    
+    
+    #input_tensor = torch.randn(1, 1, 5, 192, 192) # (batch_size, channels, depth, height, width)
+    #output = model(input_tensor)
+    #print("Output Shape:", output.shape)  #torch.Size([1, 3, 192, 192])
 
     # Parametre Sayısını Yazdırma
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Total Parameters: {total_params}")
+    #total_params = sum(p.numel() for p in model.parameters())
+    #print(f"Total Parameters: {total_params}")

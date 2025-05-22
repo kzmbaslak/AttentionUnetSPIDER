@@ -4,6 +4,13 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import SimpleITK as sitk
+import matplotlib.pyplot as plt
+import config
+
+
+METRIC_SAVE_PATH = "saved_metrics/val_metrics.csv"
+LOSS_SAVE_PATH = "saved_metrics/val_loss.csv"
+
 
 def dice_loss(probs, target, epsilon=1e-6, num_classes=4):
     """Çok sınıflı Dice kaybı"""
@@ -37,6 +44,7 @@ def test_loop(model, test_loader, criterion, device, num_classes):
     model.eval()  # evaluation moduna al
     test_loss = 0.0
     dice_scores = []
+    metrics = []
 
     with torch.no_grad():  # gradyan hesaplamayı kapat
         for images, masks in test_loader:
@@ -49,10 +57,21 @@ def test_loop(model, test_loader, criterion, device, num_classes):
             # Dice Coefficient hesapla
             probs = torch.softmax(outputs, dim=1)
             dice = dice_coefficient(probs, masks, num_classes=num_classes, device=device)
+            
+            metrics.append(compute_metrics(masks,outputs))
             dice_scores.append(dice.cpu().numpy())
 
     test_loss /= len(test_loader)
+    
+    df_metrics = pd.DataFrame(metrics)
+    df_metrics.plot(title="metrics of test")
+    plt.show()
+    
     mean_dice = np.mean(dice_scores)
+    #plt.figure()
+    #plt.title("test dice score")
+    #plt.plot(dice_scores)
+    
     print(f'Test Loss: {test_loss:.4f}, Test Dice: {mean_dice:.4f}')
 
 #Görselleştirme fonksiyonu
@@ -91,3 +110,105 @@ def visualize_predictions(model, data_loader, device, save_dir, num_samples=5):
                 sitk.WriteImage(pred_mask_sitk, pred_mask_path)
 
                 print(f'Sample {i}_{j} saved to {save_dir}')
+                
+                
+                
+######################################################################################metrics
+
+
+import pandas as pd
+import torch
+
+# ----------------------------------------
+# 1. .mha dosyalarını oku (Mask ve Prediction)
+# ----------------------------------------
+
+
+
+# -------------------------
+# 2. Metrik hesaplama
+# -------------------------
+
+def compute_metrics_for_class(mask, pred, cls):
+    mask_cls = (mask == cls).type(torch.uint8)
+    pred_cls = (pred == cls).type(torch.uint8)
+
+    TP = torch.logical_and(pred_cls == 1, mask_cls == 1).sum()
+    FP = torch.logical_and(pred_cls == 1, mask_cls == 0).sum()
+    FN = torch.logical_and(pred_cls == 0, mask_cls == 1).sum()
+    TN = torch.logical_and(pred_cls == 0, mask_cls == 0).sum()
+    
+    
+    # Convert to float for division
+    TP = TP.to(torch.float)
+    FP = FP.to(torch.float)
+    FN = FN.to(torch.float)
+    TN = TN.to(torch.float)
+    
+    
+    eps = 1e-7  # sıfıra bölünmeyi önlemek için
+
+    dice = (2 * TP) / (2 * TP + FP + FN + eps)
+    iou = TP / (TP + FP + FN + eps)
+    precision = TP / (TP + FP + eps)
+    recall = TP / (TP + FN + eps)
+    f1 = 2 * precision * recall / (precision + recall + eps)
+    accuracy = (TP + TN) / (TP + TN + FP + FN + eps)
+
+    #return dice, iou, precision, recall, f1, accuracy
+    # Return CPU float values
+    return (dice.item(), iou.item(), precision.item(), recall.item(), f1.item(), accuracy.item())
+
+
+
+# -------------------------
+# 3. Tüm sınıflar için hesapla
+# -------------------------
+
+def compute_metrics(masks,preds):
+    preds = torch.argmax(preds,dim=1)
+    macro_avg = []
+    for mask, pred in zip(masks,preds):
+        if preds.dim() == 5 and preds.shape[1] == 1:
+            preds = preds.squeeze(1)
+        assert mask.shape == pred.shape, "Shape mismatch!"
+        assert mask.device == pred.device, "Mask and prediction must be on the same device!"
+
+        results = []
+        for cls in np.arange(config.classNumber):
+            dice, iou, precision, recall, f1, acc = compute_metrics_for_class(mask, pred, cls)
+            results.append({
+                "Class": cls,
+                "Dice": dice,
+                "IoU": iou,
+                "Precision": precision,
+                "Recall": recall,
+                "F1 Score": f1,
+                "Accuracy": acc
+            })
+        df = pd.DataFrame(results)
+        df.set_index("Class", inplace=True)
+        #print("\n📊 Sınıf Bazlı Metrikler")
+        #print(df.round(4))
+
+        # -------------------------
+        # 4. Ortalamalar
+        # -------------------------
+
+        macro_avg.append(df.mean(numeric_only=True))
+        #print("\n🔢 Macro Ortalama Metrikler:")
+        #print(macro_avg[0].round(4))
+    macro_avg = pd.DataFrame(macro_avg).mean()
+    #dice, iou, precision, recall, f1, acc
+    return macro_avg
+        
+def saveValLoss(val_losses):
+    val_losses_temp = pd.DataFrame(val_losses,columns=["loss"])
+    #val_losses_temp.columns = ["loss"]
+    val_losses_temp.to_csv(LOSS_SAVE_PATH,index=False)
+
+def saveAllEpochMetrics(val_of_metrics_all_epoch):
+    val_of_metrics_all_epoch_temp = pd.DataFrame(val_of_metrics_all_epoch)
+    val_of_metrics_all_epoch_temp.columns = ["Dice","IoU","Precision","Recall","F1 Score","Accuracy"]
+    val_of_metrics_all_epoch_temp.to_csv(METRIC_SAVE_PATH,index = False)
+    

@@ -1,6 +1,7 @@
 from os import path, getenv
 
 version = '1.9.0'
+classNumber = 4
 
 #patch_shape = (64, 192, 192)
 patch_shape = (5, 192, 192)

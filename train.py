@@ -6,22 +6,23 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import pandas as pd
-from model import AttentionUnet
 from model3d import AttentionUnet3D
+from LightweightAttentionUnet3D import LightweightAttentionUnet3D
 from data_loader import SpineDataset
-from utils import dice_loss, dice_coefficient, calculate_metrics
+from utils import dice_loss, dice_coefficient, calculate_metrics, compute_metrics, saveValLoss, saveAllEpochMetrics
 import numpy as np
 import SimpleITK as sitk
 from tqdm import tqdm
 import config
+import matplotlib.pyplot as plt
 
 
 
 # Hiperparametreler
-LOAD_MODEL = True
+LOAD_MODEL = False
 BATCH_SIZE = 2
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 10
+NUM_EPOCHS = 2
 NUM_CLASSES = 4 # Arka plan dahil
 NUM_WORKERS = 0 # multiprocess sayısı
 PIN_MEMORY = True # Adresleri sabitlenmiş hafıza  oluşturma
@@ -31,6 +32,8 @@ CSV_PATH = config.overviewPath
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #DEVICE = torch.device('cpu')
 MODEL_SAVE_PATH = 'saved_models/attention_unet.pth'
+METRIC_SAVE_PATH = "saved_metrics/val_metrics.csv"
+LOSS_SAVE_PATH = "saved_metrics/val_loss.csv"
 TIME_STEPS = 5
 
 # Veri yükleme
@@ -44,8 +47,8 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_w
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY) # Test loader'ı da oluşturuldu
 
 # Model, optimizer ve kayıp fonksiyonu
-#model = AttentionUnet(in_channels=1, num_classes=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
-model = AttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
+#model = AttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
+model = LightweightAttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 criterion = nn.CrossEntropyLoss()
 
@@ -54,32 +57,33 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
     
     if LOAD_MODEL:
         load_checkpoint(torch.load(MODEL_SAVE_PATH), model)
+        val_loss, val_metrics = validation_loop(model, criterion, val_loader, device)
+        best_val_loss = val_loss
+    else:
+        best_val_loss = float('inf')
     
-    best_val_loss = float('inf')
+    
+    
+    val_losses = []
+    val_of_metrics_all_epoch = []
+    train_losses = []
+    
+    if(os.path.exists(LOSS_SAVE_PATH)):
+        val_losses = pd.read_csv(LOSS_SAVE_PATH).values.tolist()
+        best_val_loss = np.min(val_losses)
+    
+    if(os.path.exists(METRIC_SAVE_PATH)):
+        val_of_metrics_all_epoch = pd.read_csv(METRIC_SAVE_PATH).values.tolist()
+        
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
         
+        
         for i, (images, masks) in enumerate(tqdm(train_loader)):
-            print(f"[train_loop] Batch {i} alındı.") 
             images, masks = images.to(device), masks.to(device)
             optimizer.zero_grad()
             outputs = model(images)
-            
-            
-# =============================================================================
-#             print("Model output shape:", outputs.shape)
-#             print("Target mask shape:", masks.shape)
-#             
-#             print("Output shape:", outputs.shape)
-#             print("Mask shape:", masks.shape)
-#             print("Mask dtype:", masks.dtype)
-#             print("Mask max sınıf:", masks.max().item())
-#             print("Mask sınıflar:", masks.unique().tolist())
-# =============================================================================
-            
-            if masks.max() >= outputs.shape[1]:
-                raise ValueError(f"Mask'te {masks.max().item()} sınıfı var ama modelin out_channels={outputs.shape[1]}")
             
             # Flatten for CrossEntropy
             #outputs = outputs.permute(0, 2, 3, 4, 1).contiguous().view(-1, outputs.shape[1])
@@ -100,12 +104,17 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
             #loss.backward()
             #optimizer.step()
             train_loss += loss.item()
+            train_losses.append(loss.item())
 
         train_loss /= len(train_loader)
-        val_loss, val_dice = validation_loop(model, criterion, val_loader, device)  # val_dice eklendi
-
-
-        print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Dice: {val_dice:.4f}')
+        val_loss, val_metrics = validation_loop(model, criterion, val_loader, device)
+        
+        val_losses.append([val_loss])
+        saveValLoss(val_losses)
+        
+        val_of_metrics_all_epoch.append(val_metrics)
+        saveAllEpochMetrics(val_of_metrics_all_epoch)
+        #print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Loss SD: {np.std(train_losses)}, Train Loss Mean: {np.mean(train_losses)}, Val Loss: {val_loss:.4f}, Val Dice: {val_metrics[0]:.4f}')
 
         # Modeli kaydet (en iyi validation kaybıyla)
         if val_loss < best_val_loss:
@@ -117,33 +126,54 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
             }
             torch.save(checkpoint, MODEL_SAVE_PATH)
             print(f'Model saved to {MODEL_SAVE_PATH}')
-            
+    
+    
+    
+    #print(f'Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Dice: {val_dice:.4f}')
+    
+    pd.DataFrame(val_of_metrics_all_epoch).plot(title="metrics of validation for All epochs")
+    plt.show()
+    #plt.figure()
+    #plt.title("Validation Loss")
+    #plt.plot(val_losses)
 
 def validation_loop(model, criterion, val_loader, device):
     model.eval()
     val_loss = 0.0
-    dice_scores = [] # Her batch için dice skorlarını sakla
-
+    #dice_scores = [] # Her batch için dice skorlarını sakla
+    metrics = []
+    
     with torch.no_grad():
-        for images, masks in val_loader:
+        for i, (images, masks) in enumerate(tqdm(val_loader)):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
             loss = criterion(outputs, masks)
             val_loss += loss.item()
 
             # Dice Coefficient hesapla
-            probs = torch.softmax(outputs, dim=1)
-            dice = dice_coefficient(probs, masks, num_classes=NUM_CLASSES, device=device)  # num_classes eklendi
-            dice_scores.append(dice.cpu().numpy())  # GPU'dan CPU'ya taşı ve NumPy'ye dönüştür
+            #probs = torch.softmax(outputs, dim=1)
+            #dice = dice_coefficient(probs, masks, num_classes=NUM_CLASSES, device=device)  # num_classes eklendi
 
+            metrics.append(compute_metrics(masks,outputs))
+            
+            #dice_scores.append(dice.cpu().numpy())  # GPU'dan CPU'ya taşı ve NumPy'ye dönüştür
+
+    df_metrics = pd.DataFrame(metrics)
+    df_metrics.plot(title="metrics of validation")
+    plt.show()
+   
     val_loss /= len(val_loader)
-    mean_dice = np.mean(dice_scores) # Tüm batch'lerin ortalama dice skoru
-    return val_loss, mean_dice
+    #mean_dice = np.mean(dice_scores) # Tüm batch'lerin ortalama dice skoru
+    
+    #plt.figure()
+    #plt.title("Validation dice scores")
+    #plt.plot(dice_scores)
+    return val_loss, df_metrics.mean()
 
 def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
-    
+    print("=> finished load porcess")
 # Eğitim
 if __name__ == '__main__':
     train_loop(model, optimizer, criterion, train_loader, val_loader, NUM_EPOCHS, DEVICE)

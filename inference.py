@@ -6,13 +6,16 @@ from model3d import AttentionUnet3D
 import os
 import config
 import cv2
+from LightweightAttentionUnet3D import LightweightAttentionUnet3D
+import matplotlib.pyplot as plt
+
 
 # Modelin yükleneceği cihazı ayarla
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def load_model(model_path, num_classes):
     """Eğitilmiş modeli yükle"""
-    model = AttentionUnet3D(in_channels=1, out_channels=num_classes).to(DEVICE)
+    model = LightweightAttentionUnet3D(in_channels=1, out_channels=num_classes).to(DEVICE)
     model.load_state_dict(torch.load(model_path, map_location=DEVICE)["state_dict"])
     model.eval()  # inference moduna al
     return model
@@ -23,19 +26,28 @@ def predict_segmentation(image_path, model, num_classes, time_steps=5):
     image_array = sitk.GetArrayFromImage(image) # T, H, W
 
      # Zaman serisi uzunluğunu kontrol et ve gerekirse kırp veya doldur
-    T = image_array.shape[2]
+    # T = image_array.shape[2]
+    # if T > time_steps:
+    #     start = (T - time_steps) // 2 #Ortala
+    #     image_array = image_array[:,:,start:start + time_steps]
+    # elif T < time_steps:
+    #     pad_size = time_steps - T
+    #     image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
+
+    T = image_array.shape[0]
+       
     if T > time_steps:
         start = (T - time_steps) // 2 #Ortala
-        image_array = image_array[:,:,start:start + time_steps]
+        image_array = image_array[start:start + time_steps,:,:]
     elif T < time_steps:
         pad_size = time_steps - T
-        image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
-
-
+        image_array = np.pad(image_array, ((0, 0), (0, 0),(0, pad_size)), mode='constant') # Zaman boyutunda doldur
+        
     #auto crop
     threshold_min = config.pixelMinValue # Alt yoğunluk eşiği
     threshold_max = config.pixelMaxValue # Üst yoğunluk eşiği
     image_array = automatic_roi(image_array,threshold_min, threshold_max)
+    
     
     # Windowing
     image_array = windowing(image_array, config.pixelMinValue, config.pixelMaxValue)
@@ -63,17 +75,7 @@ def predict_segmentation(image_path, model, num_classes, time_steps=5):
     image_array = np.expand_dims(image_array, axis=0) # Kanal ve batch boyutlarını ekle *********
     image_tensor = torch.from_numpy(image_array).float().to(DEVICE)
 
-# =============================================================================
-#     # Ön işleme (windowing, resampling, normalize) - data_loader'dan al
-#     image_array = windowing(image_array, window_center=50, window_width=350)  # Değerler ayarlanabilir
-#     image_array, _ = resample(image, image, [time_steps, 64, 64])  # Hedef boyut ayarlanabilir
-#     image_array = normalize(image_array)
-# 
-#     image_array = np.expand_dims(image_array, axis=0)
-#     image_array = np.expand_dims(image_array, axis=0) # Kanal ve batch boyutlarını ekle
-#     image_tensor = torch.from_numpy(image_array).float().to(DEVICE)
-# 
-# =============================================================================
+
     with torch.no_grad():
         output = model(image_tensor)
         prediction = torch.argmax(output, dim=1).cpu().numpy() # En olası sınıfı seç
@@ -83,9 +85,15 @@ def predict_segmentation(image_path, model, num_classes, time_steps=5):
 def resizeImages(imageArray):
     #print(type(maskArray),maskArray.shape,type(imageArray),imageArray.shape)
     
-    tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
-    for i in range(imageArray.shape[2]):
-        tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
+    # tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
+    # for i in range(imageArray.shape[2]):
+    #     tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
+    # return tempImageArray
+
+    #kesitsiz
+    tempImageArray = np.zeros((imageArray.shape[0],*config.patch_shape[1:]),np.int64)
+    for i in range(imageArray.shape[0]):
+        tempImageArray[i,:,:] = cv2.resize(imageArray[i,:,:], config.patch_shape[1:])
     return tempImageArray
 
 def windowing(image, minValue, maxValue):
@@ -166,7 +174,7 @@ def automatic_roi(image_array, threshold_min, threshold_max):
 # Örnek Kullanım
 if __name__ == '__main__':
     # Modelin yolu ve sınıf sayısı
-    MODEL_PATH = 'saved_models/attention_unet.pth'
+    MODEL_PATH = 'saved_models/attention_unet 100 epoch LW.pth'
     NUM_CLASSES = 4
     TIME_STEPS = 5
     # Test görüntüsünün yolu
@@ -179,8 +187,14 @@ if __name__ == '__main__':
     segmented_image = predict_segmentation(TEST_IMAGE_PATH, model, NUM_CLASSES, TIME_STEPS)
 
     # Sonucu kaydet (isteğe bağlı)
-    output_path = 'segmented_image.mha'
+    output_path = 'segmented_image1.mha'
     segmented_image = sitk.GetImageFromArray(segmented_image)
     sitk.WriteImage(segmented_image, output_path)
 
     print(f"Segmented image saved to {output_path}")
+    predImage = sitk.ReadImage('segmented_image.mha')
+    predArray = sitk.GetArrayFromImage(predImage)
+    for i in np.arange(5):
+        plt.figure()
+        plt.imshow(predArray[i])
+    

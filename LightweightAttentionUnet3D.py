@@ -4,8 +4,8 @@ import torch.nn as nn
 class DepthwiseSeparableConv3D(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
         super().__init__() #Depthwise + Pointwise Separable Convolution
-        self.depthwise = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, padding=padding, groups=in_channels)
-        self.pointwise = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+        self.depthwise = nn.Conv3d(in_channels, in_channels, kernel_size=kernel_size, padding=padding, groups=in_channels)#uzamsal bilgi çıkarılır. Kanallar arası bilgi yok
+        self.pointwise = nn.Conv3d(in_channels, out_channels, kernel_size=1)#kanallar arası bilgi de çıkarılır.
         self.bn = nn.BatchNorm3d(out_channels)
         self.relu = nn.ReLU(inplace=True)
 
@@ -33,7 +33,7 @@ class SEBlock3D(nn.Module):  #changed Attention Block, SEBlock (Squeeze-and-Exci
         return x * y.expand_as(x)
 
 class LightweightAttentionUnet3D(nn.Module):
-    def __init__(self, in_channels=1, out_channels=3):
+    def __init__(self, in_channels=1, out_channels=4):
         super().__init__()
         filters = [32, 64, 128, 256, 512]
 
@@ -81,7 +81,7 @@ class LightweightAttentionUnet3D(nn.Module):
 
 
 if __name__ == '__main__':
-    model = LightweightAttentionUnet3D(in_channels=1, out_channels=3)
+    model = LightweightAttentionUnet3D(in_channels=1, out_channels=4)
     x = torch.randn(1, 1, 5, 192, 192)
     out = model(x)
     print("Output shape:", out.shape)

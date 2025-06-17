@@ -1,5 +1,4 @@
 import os
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 import torch
 import torch.nn as nn
@@ -22,9 +21,9 @@ import matplotlib.pyplot as plt
 LOAD_MODEL = False
 BATCH_SIZE = 2
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 2
+NUM_EPOCHS = 100
 NUM_CLASSES = 4 # Arka plan dahil
-NUM_WORKERS = 0 # multiprocess sayısı
+NUM_WORKERS = 2 # multiprocess sayısı
 PIN_MEMORY = True # Adresleri sabitlenmiş hafıza  oluşturma
 IMAGE_DIR = config.IMAGE_DIR
 MASK_DIR = config.MASK_DIR
@@ -131,8 +130,8 @@ def train_loop(model, optimizer, criterion, train_loader, val_loader, num_epochs
     
     #print(f'Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Dice: {val_dice:.4f}')
     
-    pd.DataFrame(val_of_metrics_all_epoch).plot(title="metrics of validation for All epochs")
-    plt.show()
+    #pd.DataFrame(val_of_metrics_all_epoch).plot(title="metrics of validation for All epochs")
+    #plt.show()
     #plt.figure()
     #plt.title("Validation Loss")
     #plt.plot(val_losses)

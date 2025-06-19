@@ -18,9 +18,9 @@ import matplotlib.pyplot as plt
 
 
 # Hiperparametreler
-LOAD_MODEL = False
+LOAD_MODEL = True
 BATCH_SIZE = 2
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.0005
 NUM_EPOCHS = 100
 NUM_CLASSES = 4 # Arka plan dahil
 NUM_WORKERS = 2 # multiprocess sayısı
@@ -46,7 +46,7 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_w
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY) # Test loader'ı da oluşturuldu
 
 # Model, optimizer ve kayıp fonksiyonu
-#model = AttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
+# model = AttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
 model = LightweightAttentionUnet3D(in_channels=1, out_channels=NUM_CLASSES).to(DEVICE) # in_channels = 1 (Gri tonlamalı)
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 criterion = nn.CrossEntropyLoss()

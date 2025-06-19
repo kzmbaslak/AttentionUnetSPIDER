@@ -118,7 +118,7 @@ class AttentionUnet3D(nn.Module):
 
 if __name__ == '__main__':
     # Model Test
-    model = AttentionUnet3D(in_channels=1, out_channels=3)
+    model = AttentionUnet3D(in_channels=1, out_channels=4)
     
     x = torch.randn(1, 1, 5, 192, 192)
     out = model(x)

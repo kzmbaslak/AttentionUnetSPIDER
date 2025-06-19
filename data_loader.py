@@ -64,28 +64,18 @@ class SpineDataset(Dataset):
         
         #Ters dizi
         # Zaman serisi uzunluğunu kontrol et ve gerekirse kırp veya doldur
-        # T = image_array.shape[2]
-        
-        # if T > self.time_steps:
-        #     start = (T - self.time_steps) // 2 #Ortala
-        #     image_array = image_array[:,:,start:start + self.time_steps]
-        #     mask_array = mask_array[:,:,start:start + self.time_steps]
-        # elif T < self.time_steps:
-        #     pad_size = self.time_steps - T
-        #     image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
-        #     mask_array = np.pad(mask_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
-        
-        T = image_array.shape[0]
+        T = image_array.shape[2]
         
         if T > self.time_steps:
             start = (T - self.time_steps) // 2 #Ortala
-            image_array = image_array[start:start + self.time_steps,:,:]
-            mask_array = mask_array[start:start + self.time_steps,:,:]
+            image_array = image_array[:,:,start:start + self.time_steps]
+            mask_array = mask_array[:,:,start:start + self.time_steps]
         elif T < self.time_steps:
             pad_size = self.time_steps - T
-            image_array = np.pad(image_array, ((0, 0), (0, 0),(0, pad_size)), mode='constant') # Zaman boyutunda doldur
-            mask_array = np.pad(mask_array, ((0, 0), (0, 0), (0, pad_size)), mode='constant') # Zaman boyutunda doldur
+            image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
+            mask_array = np.pad(mask_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
         
+       
         
         
         #auto crop
@@ -107,8 +97,8 @@ class SpineDataset(Dataset):
         
         
         
-        #Mimage_array = np.transpose(image_array, (2, 0, 1))
-        #mask_array = np.transpose(mask_array, (2, 0, 1))
+        image_array = np.transpose(image_array, (2, 0, 1))
+        mask_array = np.transpose(mask_array, (2, 0, 1))
         #print("mask_array unique value: ",np.unique(mask_array))
         
         mask_array[(mask_array > 0) & (mask_array < 80)] = 1
@@ -139,15 +129,12 @@ class SpineDataset(Dataset):
         #print(type(maskArray),maskArray.shape,type(imageArray),imageArray.shape)
         
         #kesitli ayrıca ters dizi
-        # tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
-        # tempMaskArray = np.zeros((config.patch_shape[::-1]),np.int64)
+        tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
+        tempMaskArray = np.zeros((config.patch_shape[::-1]),np.int64)
         
-        #kesitsiz
-        tempImageArray = np.zeros((imageArray.shape[0],*config.patch_shape[1:]),np.int64)
-        tempMaskArray = np.zeros((maskArray.shape[0],*config.patch_shape[1:]),np.int64)
-        for i in range(imageArray.shape[0]):
-            tempImageArray[i,:,:] = cv2.resize(imageArray[i,:,:], config.patch_shape[1:])
-            tempMaskArray[i,:,:] = cv2.resize(maskArray[i,:,:], config.patch_shape[1:],interpolation=cv2.INTER_NEAREST)
+        for i in range(imageArray.shape[2]):
+            tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
+            tempMaskArray[:,:,i] = cv2.resize(maskArray[:,:,i], config.patch_shape[1:],interpolation=cv2.INTER_NEAREST)
         return tempImageArray, tempMaskArray
     
     def windowing(self, image, minValue, maxValue):

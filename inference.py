@@ -26,23 +26,15 @@ def predict_segmentation(image_path, model, num_classes, time_steps=5):
     image_array = sitk.GetArrayFromImage(image) # T, H, W
 
      # Zaman serisi uzunluğunu kontrol et ve gerekirse kırp veya doldur
-    # T = image_array.shape[2]
-    # if T > time_steps:
-    #     start = (T - time_steps) // 2 #Ortala
-    #     image_array = image_array[:,:,start:start + time_steps]
-    # elif T < time_steps:
-    #     pad_size = time_steps - T
-    #     image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
-
-    T = image_array.shape[0]
-       
+    T = image_array.shape[2]
     if T > time_steps:
         start = (T - time_steps) // 2 #Ortala
-        image_array = image_array[start:start + time_steps,:,:]
+        image_array = image_array[:,:,start:start + time_steps]
     elif T < time_steps:
         pad_size = time_steps - T
-        image_array = np.pad(image_array, ((0, 0), (0, 0),(0, pad_size)), mode='constant') # Zaman boyutunda doldur
-        
+        image_array = np.pad(image_array, ((0, pad_size), (0, 0), (0, 0)), mode='constant') # Zaman boyutunda doldur
+
+    
     #auto crop
     threshold_min = config.pixelMinValue # Alt yoğunluk eşiği
     threshold_max = config.pixelMaxValue # Üst yoğunluk eşiği
@@ -85,16 +77,16 @@ def predict_segmentation(image_path, model, num_classes, time_steps=5):
 def resizeImages(imageArray):
     #print(type(maskArray),maskArray.shape,type(imageArray),imageArray.shape)
     
-    # tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
-    # for i in range(imageArray.shape[2]):
-    #     tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
-    # return tempImageArray
-
-    #kesitsiz
-    tempImageArray = np.zeros((imageArray.shape[0],*config.patch_shape[1:]),np.int64)
-    for i in range(imageArray.shape[0]):
-        tempImageArray[i,:,:] = cv2.resize(imageArray[i,:,:], config.patch_shape[1:])
+    tempImageArray = np.zeros((config.patch_shape[::-1]),np.int64)
+    for i in range(imageArray.shape[2]):
+        tempImageArray[:,:,i] = cv2.resize(imageArray[:,:,i], config.patch_shape[1:])
     return tempImageArray
+
+    # #kesitsiz
+    # tempImageArray = np.zeros((imageArray.shape[0],*config.patch_shape[1:]),np.int64)
+    # for i in range(imageArray.shape[0]):
+    #     tempImageArray[i,:,:] = cv2.resize(imageArray[i,:,:], config.patch_shape[1:])
+    # return tempImageArray
 
 def windowing(image, minValue, maxValue):
     image = image.astype(np.float32)
